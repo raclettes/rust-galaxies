@@ -1,0 +1,29 @@
+galaxies:
+  - star:
+      mass: 2000000.0
+      color: [1.0, 1.0, 0.0, 1.0]
+    planets:
+      distance:
+        min: 10
+        max: 30
+      mass:
+        min: 1
+        max: 50
+      number: 250
+    position: [60.0, 60.0]
+    direction: 1.0
+  - star:
+      mass: 1000000.0
+      color: [1.0, 1.0, 0.0, 1.0]
+    planets:
+      distance:
+        min: 10
+        max: 30
+      mass:
+        min: 1
+        max: 50
+      number: 250
+    position: [-60.0, -60.0]
+    direction: -1.0
+scale: 1.0
+time_scale: 1.0
