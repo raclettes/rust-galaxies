@@ -42,7 +42,7 @@ pub struct Configuration {
 
 pub fn load_config(app: &mut App) -> Result<()> {
     let mut path = env::current_dir().unwrap();
-    path = path.join(Path::new("..")).join(Path::new("config.yaml"));
+    path = path.join(Path::new("config.yaml"));
 
     let mut file = File::open(path).unwrap();
     let mut data = String::new();

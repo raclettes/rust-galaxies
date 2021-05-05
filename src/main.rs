@@ -19,9 +19,7 @@ use piston::{
     event_loop::{EventSettings, Events},
     Button, Key, PressEvent, ReleaseEvent,
 };
-use rand::distributions::Uniform;
-use rand::{prelude::Distribution, Rng};
-use config::{Configuration, load_config};
+use config::{load_config};
 
 
 type ImplIteratorMut<'a, Item> =
@@ -30,7 +28,7 @@ trait SplitOneMut {
     type Item;
 
     fn split_one_mut(
-        self: &'_ mut Self,
+        &'_ mut self,
         i: usize,
     ) -> (&'_ mut Self::Item, ImplIteratorMut<'_, Self::Item>);
 }
@@ -69,8 +67,8 @@ impl Particle {
             return (0.0, 0.0);
         }
 
-        let f = &self.mass * &other.mass / &distance.powi(2);
-        let theta = (&other.y - &self.y).atan2(&other.x - &self.x);
+        let f = self.mass * other.mass / distance.powi(2);
+        let theta = (other.y - self.y).atan2(other.x - self.x);
 
         let fx = theta.cos() * f;
         let fy = theta.sin() * f;
@@ -127,8 +125,8 @@ impl App {
             // Draw a box rotating around the middle of the screen.
             // rectangle(RED, square, transform, gl);
             for particle in particles {
-                let px = &particle.x * scale - (cx * scale) + x;
-                let py = &particle.y * scale - (cy * scale) + y;
+                let px = particle.x * scale - (cx * scale) + x;
+                let py = particle.y * scale - (cy * scale) + y;
 
                 if px < 0.0 || px > args.window_size[0] || py < 0.0 || py > args.window_size[1] {
                     continue;
@@ -141,7 +139,7 @@ impl App {
                     0.0,
                     f64::_360(),
                     rectangle::square(-rad/2.0, -rad/2.0, rad),
-                    transform.trans(&particle.x * scale, &particle.y * scale),
+                    transform.trans(particle.x * scale, particle.y * scale),
                     gl,
                 );
             }
@@ -205,7 +203,7 @@ impl App {
 
                 if p1.mass > 50.0 || p2.mass > 50.0 {
                     let rel_velocity =
-                        ((&p2.vx - &p1.vx).powi(2) + (&p2.vy - &p1.vy).powi(2)).sqrt();
+                        ((p2.vx - p1.vx).powi(2) + (p2.vy - p1.vy).powi(2)).sqrt();
                     let distance = p1.distance_to(p2);
                     if distance < p1.radius() + p2.radius() && rel_velocity > 160.0 {
                         // Combine
@@ -271,7 +269,7 @@ fn main() {
     let mut app = App {
         gl: GlGraphics::new(opengl),
         particles: Vec::new(),
-        scale: (2) as f64,
+        scale: 2.0,
         cx: 0.0,
         cy: 0.0,
         time_scale: 1.0
@@ -296,22 +294,12 @@ fn main() {
             app.update(&args, &keys);
         }
 
-        if let Some(args) = e.press_args() {
-            match args {
-                Button::Keyboard(key) => {
-                    keys.insert(key);
-                }
-                _ => {}
-            }
+        if let Some(Button::Keyboard(key)) = e.press_args() {
+            keys.insert(key);
         }
 
-        if let Some(args) = e.release_args() {
-            match args {
-                Button::Keyboard(key) => {
-                    keys.remove(&key);
-                }
-                _ => {}
-            }
+        if let Some(Button::Keyboard(key)) = e.release_args() {
+            keys.remove(&key);
         }
     }
 }
