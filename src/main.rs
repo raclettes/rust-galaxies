@@ -37,7 +37,7 @@ impl<T> SplitOneMut for [T] {
     type Item = T;
 
     fn split_one_mut(
-        self: &'_ mut Self,
+        &'_ mut self,
         i: usize,
     ) -> (&'_ mut Self::Item, ImplIteratorMut<'_, Self::Item>) {
         let (prev, current_and_end) = self.split_at_mut(i);
@@ -77,7 +77,7 @@ impl Particle {
     }
 
     fn distance_to(&mut self, other: &Particle) -> f64 {
-        ((&other.x - &self.x).powi(2) + (&other.y - &self.y).powi(2)).sqrt()
+        ((other.x - self.x).powi(2) + (other.y - self.y).powi(2)).sqrt()
     }
 
     fn radius(&self) -> f64 {
