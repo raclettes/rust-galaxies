@@ -8,10 +8,10 @@ extern crate serde_yaml;
 mod config;
 
 use core::panic;
-use std::{collections::HashSet};
+use std::collections::HashSet;
 
 use glutin_window::GlutinWindow as Window;
-use graphics::color::{BLACK, YELLOW};
+use graphics::{color::{BLACK, YELLOW}};
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::input::{RenderArgs, RenderEvent, UpdateArgs, UpdateEvent};
 use piston::window::WindowSettings;
@@ -45,7 +45,7 @@ impl<T> SplitOneMut for [T] {
         (&mut current[0], prev.iter_mut().chain(end))
     }
 }
-
+#[derive(Clone,Debug)]
 pub struct Particle {
     pub mass: f64,
     pub vx: f64,
@@ -104,7 +104,9 @@ pub struct App {
     cx: f64,
     cy: f64,
 
-    time_scale: f64
+    time_scale: f64,
+    ticks_ahead: u32,
+    future_positions: Vec<Vec<(f64, f64)>>
 }
 
 impl App {
@@ -113,6 +115,7 @@ impl App {
 
         let (x, y) = (args.window_size[0] / 2.0, args.window_size[1] / 2.0);
         let particles = &self.particles;
+        let future_positions = &self.future_positions;
         let scale = &self.scale;
         let cx = &self.cx;
         let cy = &self.cy;
@@ -124,6 +127,33 @@ impl App {
 
             // Draw a box rotating around the middle of the screen.
             // rectangle(RED, square, transform, gl);
+            
+            for t in 0..future_positions.len() {
+                let tick_particles = &future_positions[t];
+                for p in 0..tick_particles.len() {
+                    if t != future_positions.len() - 1 {
+                        let (x_1, y_1) = future_positions[t][p];
+                        let (x_2, y_2) = future_positions[t+1][p];
+
+                        let x_1 = x_1 * scale;
+                        let y_1 = y_1 * scale;
+                        let x_2 = x_2 * scale;
+                        let y_2 = y_2 * scale;
+
+                        // if x_1 < 0.0 || x_1 > args.window_size[0] || y_1 < 0.0 || y_1 > args.window_size[1] {
+                        //     continue;
+                        // }
+
+                        line(
+                            [0.5, 0.5, 0.5, 0.2], 
+                            1.0, 
+                            [x_1 , y_1, x_2, y_2], 
+                            transform, 
+                            gl
+                        );
+                    }
+                }
+            }
             for particle in particles {
                 let px = particle.x * scale - (cx * scale) + x;
                 let py = particle.y * scale - (cy * scale) + y;
@@ -181,63 +211,8 @@ impl App {
             self.time_scale /= 1.1;
         }
 
-        for p1idx in 0..self.particles.len() {
-            let (p1, particles) = self.particles.split_one_mut(p1idx);
-
-            if p1.to_destroy {
-                continue;
-            }
-
-            let mut fx: f64 = 0.0;
-            let mut fy: f64 = 0.0;
-
-            for p2 in particles {
-                if p2.to_destroy {
-                    continue;
-                }
-
-                let (t_fx, t_fy) = &p1.force_from(p2);
-
-                fx += t_fx;
-                fy += t_fy;
-
-                if p1.mass > 50.0 || p2.mass > 50.0 {
-                    let rel_velocity =
-                        ((p2.vx - p1.vx).powi(2) + (p2.vy - p1.vy).powi(2)).sqrt();
-                    let distance = p1.distance_to(p2);
-                    if distance < p1.radius() + p2.radius() && rel_velocity > 160.0 {
-                        // Combine
-                        p2.to_destroy = true;
-
-                        let momentum_x = p1.mass * p1.vx + p2.mass * p2.vx;
-                        let momentum_y = p1.mass * p1.vy + p2.mass * p2.vy;
-
-                        if p2.color == YELLOW || p1.color == YELLOW {
-                            p1.color = YELLOW;
-                        }
-
-                        p1.mass += p2.mass;
-                        p1.vx = momentum_x / p1.mass;
-                        p1.vy = momentum_y / p1.mass;
-                    }
-                }
-            }
-
-            p1.vx += fx / p1.mass * dt;
-            p1.vy += fy / p1.mass * dt;
-
-            p1.x += p1.vx * dt;
-            p1.y += p1.vy * dt;
-        }
-
-        let mut i = 0;
-        while i != self.particles.len() {
-            if self.particles[i].to_destroy {
-                self.particles.remove(i);
-            } else {
-                i += 1;
-            }
-        }
+        tick(dt, &mut self.particles);
+        self.calculate_trace(dt);
     }
 
     fn add_particle(&mut self, mass: f64, vx: f64, vy: f64, x: f64, y: f64, color: [f32; 4]) {
@@ -250,6 +225,84 @@ impl App {
             color,
             to_destroy: false,
         });
+    }
+
+    fn calculate_trace(&mut self, _dt: f64) {
+        // Clone particles as to not interfere
+        let mut particles = self.particles.clone();
+        
+        // Keep track of future positions...
+        self.future_positions = vec![vec![(0.0_f64, 0.0_f64); particles.len()]; self.ticks_ahead as usize + 1.0 as usize];
+        
+        for p_idx in 0..particles.len() {
+            self.future_positions[0][p_idx] = (particles[p_idx].x, particles[p_idx].y);
+        }
+        for i in 0..self.ticks_ahead {
+            tick(0.0083, &mut particles);
+            for p_idx in 0..particles.len() {
+                self.future_positions[(i + 1) as usize][p_idx] = (particles[p_idx].x, particles[p_idx].y);
+            }
+        }
+    }
+}
+
+fn tick(dt: f64, particles: &mut Vec<Particle>) {
+    for p1idx in 0..particles.len() {
+        let (p1, particles) = particles.split_one_mut(p1idx);
+
+        if p1.to_destroy {
+            continue;
+        }
+
+        let mut fx: f64 = 0.0;
+        let mut fy: f64 = 0.0;
+
+        for p2 in particles {
+            if p2.to_destroy {
+                continue;
+            }
+
+            let (t_fx, t_fy) = &p1.force_from(p2);
+
+            fx += t_fx;
+            fy += t_fy;
+
+            if p1.mass > 50.0 || p2.mass > 50.0 {
+                let rel_velocity =
+                    ((p2.vx - p1.vx).powi(2) + (p2.vy - p1.vy).powi(2)).sqrt();
+                let distance = p1.distance_to(p2);
+                if distance < p1.radius() + p2.radius() && rel_velocity > 160.0 {
+                    // Combine
+                    p2.to_destroy = true;
+
+                    let momentum_x = p1.mass * p1.vx + p2.mass * p2.vx;
+                    let momentum_y = p1.mass * p1.vy + p2.mass * p2.vy;
+
+                    if p2.color == YELLOW || p1.color == YELLOW {
+                        p1.color = YELLOW;
+                    }
+
+                    p1.mass += p2.mass;
+                    p1.vx = momentum_x / p1.mass;
+                    p1.vy = momentum_y / p1.mass;
+                }
+            }
+        }
+
+        p1.vx += fx / p1.mass * dt;
+        p1.vy += fy / p1.mass * dt;
+
+        p1.x += p1.vx * dt;
+        p1.y += p1.vy * dt;
+    }
+
+    let mut i = 0;
+    while i != particles.len() {
+        if particles[i].to_destroy {
+            particles.remove(i);
+        } else {
+            i += 1;
+        }
     }
 }
 
@@ -272,7 +325,9 @@ fn main() {
         scale: 2.0,
         cx: 0.0,
         cy: 0.0,
-        time_scale: 1.0
+        time_scale: 1.0,
+        ticks_ahead: 40,
+        future_positions: Vec::new()
     };
 
     match load_config(&mut app) {

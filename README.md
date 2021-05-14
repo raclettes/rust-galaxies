@@ -1,6 +1,13 @@
 # Galaxies
 Simple galaxy simulation in Rust
 
+## Features
+- Attempts to handle collisions by checking their relative velocities
+- Traces future paths *by simulating seperately* (as shown below)
+
+  ![Path tracing](https://i.discord.fr/Aj6.png)
+  ![Zoomed in](https://i.discord.fr/HBh.png)
+
 ## Config
 The default configuration file looks like:
 ```yaml
